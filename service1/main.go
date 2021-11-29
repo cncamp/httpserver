@@ -14,20 +14,14 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/cncamp/golang/httpserver/metrics"
 )
 
 func main() {
 	flag.Set("v", "4")
-	glog.V(2).Info("Starting http server...")
-	metrics.Register()
+	glog.V(2).Info("Starting service2")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/hello", rootHandler)
-	mux.HandleFunc("/healthz", healthz)
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/", rootHandler)
 
 	srv := http.Server{
 		Addr:    ":80",
@@ -71,22 +65,26 @@ func randInt(min int, max int) int {
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
 	glog.V(4).Info("entering v2 root handler")
-	timer := metrics.NewTimer()
-	defer timer.ObserveTotal()
-	user := r.URL.Query().Get("user")
-	if user == "" {
-		user = r.URL.Query().Get("User")
-	}
-	delay := randInt(10,2000)
+
+	delay := randInt(10,20)
 	time.Sleep(time.Millisecond*time.Duration(delay))
-	if user != "" {
-		io.WriteString(w, fmt.Sprintf("hello [%s]\n", user))
-	} else {
-		io.WriteString(w, "hello [stranger]\n")
-	}
 	io.WriteString(w, "===================Details of the http request header:============\n")
+
+	req, err := http.NewRequest("GET", "http://service2", nil)
+	if err != nil {
+		fmt.Printf("%s", err)
+	}
 	for k, v := range r.Header {
 		io.WriteString(w, fmt.Sprintf("%s=%s\n", k, v))
+		req.Header.Add(k, r.Header.Get(k))
 	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		glog.Info("HTTP get failed with error: ", "error", err)
+	} else {
+		glog.Info("HTTP get succeeded")
+	}
+	resp.Write(w)
 	glog.V(4).Infof("Respond in %d ms", delay)
 }
