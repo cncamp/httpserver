@@ -10,6 +10,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -74,10 +75,12 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Printf("%s", err)
 	}
-	for k, v := range r.Header {
-		io.WriteString(w, fmt.Sprintf("%s=%s\n", k, v))
-		req.Header.Add(k, r.Header.Get(k))
+	lowerCaseHeader := make(http.Header)
+	for key, value := range r.Header {
+		lowerCaseHeader[strings.ToLower(key)] = value
 	}
+	glog.Info("headers:", lowerCaseHeader)
+	req.Header = lowerCaseHeader
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
